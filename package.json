@@ -1,0 +1,19 @@
+{
+  "name": "chess-arena",
+  "version": "1.0.0",
+  "description": "A Chess.com-style chess web app with a custom JavaScript chess engine, ELO-calibrated bots, live move feedback coach, and customizable sound effects.",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "chess",
+    "chess-engine",
+    "ai",
+    "game-review",
+    "web-audio"
+  ],
+  "license": "MIT"
+}

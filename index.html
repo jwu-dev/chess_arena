@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chess Arena — Custom Engine, ELO Bots &amp; Live Coach</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-board-theme="green">
+  <div class="app-shell">
+    <!-- Left Chess.com-style Navigation Rail -->
+    <aside class="nav-rail" aria-label="Primary Navigation">
+      <div class="brand" title="Chess Arena">
+        <div class="brand-icon">♞</div>
+        <span class="brand-text">Chess<span>Arena</span></span>
+      </div>
+
+      <nav class="nav-items">
+        <button class="nav-btn active" data-tab="game" title="Play & Live Coach">
+          <span class="nav-ico">♟</span>
+          <span class="nav-label">Play</span>
+        </button>
+        <button class="nav-btn" data-tab="bots" title="Select Bot & ELO">
+          <span class="nav-ico">🤖</span>
+          <span class="nav-label">Bots</span>
+        </button>
+        <button class="nav-btn" data-tab="sounds" title="Customize Sounds">
+          <span class="nav-ico">🔊</span>
+          <span class="nav-label">Sounds</span>
+        </button>
+        <button class="nav-btn" data-tab="engine" title="Custom Engine Lab">
+          <span class="nav-ico">⚙️</span>
+          <span class="nav-label">Engine</span>
+        </button>
+      </nav>
+
+      <div class="nav-footer">
+        <div class="theme-picker" title="Board Theme">
+          <span class="theme-picker-label">Board</span>
+          <div class="theme-swatches" id="themeSwatches">
+            <button class="swatch active" data-theme="green" style="--c1:#eeeed2;--c2:#769656" title="Chess.com Green"></button>
+            <button class="swatch" data-theme="wood" style="--c1:#f0d9b5;--c2:#b58863" title="Classic Wood"></button>
+            <button class="swatch" data-theme="blue" style="--c1:#dee3e6;--c2:#6d8aa6" title="Ocean Blue"></button>
+            <button class="swatch" data-theme="slate" style="--c1:#d8dce0;--c2:#6c757d" title="Tournament Slate"></button>
+            <button class="swatch" data-theme="purple" style="--c1:#e8dff5;--c2:#7b61a8" title="Royal Dusk"></button>
+          </div>
+        </div>
+        <button class="rail-mute-btn" id="quickMuteBtn" title="Toggle Sound">
+          <span id="quickMuteIcon">🔊</span>
+          <span class="nav-label">Audio</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Center Board Stage -->
+    <main class="board-stage">
+      <div class="board-layout">
+        <!-- Vertical Evaluation Bar -->
+        <div class="eval-bar-wrap" title="Engine Evaluation (White vs Black)">
+          <div class="eval-bar" id="evalBar">
+            <div class="eval-fill-white" id="evalFillWhite" style="height: 50%"></div>
+            <span class="eval-text top" id="evalTextTop"></span>
+            <span class="eval-text bottom" id="evalTextBottom">0.0</span>
+          </div>
+        </div>
+
+        <!-- Board + Player Strips Column -->
+        <div class="board-column">
+          <!-- Top Player Strip (Opponent by default) -->
+          <div class="player-strip" id="topPlayerStrip">
+            <div class="player-info">
+              <div class="player-avatar" id="topAvatar">🕶️</div>
+              <div class="player-meta">
+                <div class="player-name-row">
+                  <span class="player-name" id="topName">Nelson</span>
+                  <span class="elo-pill" id="topElo">1200</span>
+                  <span class="thinking-badge hidden" id="botThinkingBadge">Thinking…</span>
+                </div>
+                <div class="captured-row">
+                  <div class="captured-pieces" id="topCaptured"></div>
+                  <span class="material-diff" id="topMatDiff"></span>
+                </div>
+              </div>
+            </div>
+            <div class="clock-box" id="topClock">∞</div>
+          </div>
+
+          <!-- 8x8 Interactive Board Container -->
+          <div class="board-wrapper" id="boardWrapper">
+            <div class="chessboard" id="chessboard" role="grid" aria-label="Chessboard"></div>
+            <svg class="board-arrows" id="boardArrows" viewBox="0 0 800 800" preserveAspectRatio="none">
+              <defs>
+                <marker id="arrowHeadOrange" markerWidth="4" markerHeight="4" refX="2.5" refY="2" orient="auto">
+                  <polygon points="0 0, 4 2, 0 4" fill="rgba(255, 170, 0, 0.85)" />
+                </marker>
+                <marker id="arrowHeadGreen" markerWidth="4" markerHeight="4" refX="2.5" refY="2" orient="auto">
+                  <polygon points="0 0, 4 2, 0 4" fill="rgba(129, 182, 76, 0.92)" />
+                </marker>
+                <marker id="arrowHeadBlue" markerWidth="4" markerHeight="4" refX="2.5" refY="2" orient="auto">
+                  <polygon points="0 0, 4 2, 0 4" fill="rgba(66, 165, 245, 0.9)" />
+                </marker>
+              </defs>
+              <g id="arrowLayer"></g>
+            </svg>
+
+            <!-- Promotion Picker Overlay -->
+            <div class="promo-overlay hidden" id="promoOverlay">
+              <div class="promo-modal" id="promoModal"></div>
+            </div>
+
+            <!-- Game Over Banner Overlay -->
+            <div class="gameover-overlay hidden" id="gameOverOverlay">
+              <div class="gameover-card">
+                <div class="gameover-icon" id="gameOverIcon">🏆</div>
+                <h2 id="gameOverTitle">Checkmate!</h2>
+                <p id="gameOverSubtitle">White wins by checkmate</p>
+                <div class="gameover-accuracy">
+                  <div class="acc-card">
+                    <span>White Accuracy</span>
+                    <strong id="goWhiteAcc">—</strong>
+                  </div>
+                  <div class="acc-card">
+                    <span>Black Accuracy</span>
+                    <strong id="goBlackAcc">—</strong>
+                  </div>
+                </div>
+                <div class="gameover-actions">
+                  <button class="btn btn-primary" id="goRematchBtn">Rematch</button>
+                  <button class="btn btn-secondary" id="goReviewBtn">Review Game</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Player Strip (Human by default) -->
+          <div class="player-strip" id="bottomPlayerStrip">
+            <div class="player-info">
+              <div class="player-avatar user-avatar" id="bottomAvatar">♟</div>
+              <div class="player-meta">
+                <div class="player-name-row">
+                  <span class="player-name" id="bottomName">You</span>
+                  <span class="elo-pill user-pill" id="bottomElo">White</span>
+                  <span class="acc-pill hidden" id="bottomAccPill">Acc: —</span>
+                </div>
+                <div class="captured-row">
+                  <div class="captured-pieces" id="bottomCaptured"></div>
+                  <span class="material-diff" id="bottomMatDiff"></span>
+                </div>
+              </div>
+            </div>
+            <div class="clock-box" id="bottomClock">∞</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Chess.com-style Coach & Control Panel -->
+    <aside class="side-panel">
+      <!-- Top Tab Bar -->
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-tab="game">Coach &amp; Moves</button>
+        <button class="panel-tab" data-tab="bots">Bots &amp; ELO</button>
+        <button class="panel-tab" data-tab="sounds">Sounds</button>
+        <button class="panel-tab" data-tab="engine">Engine Lab</button>
+      </div>
+
+      <!-- TAB 1: GAME & LIVE COACH -->
+      <section class="tab-content active" id="tab-game">
+        <!-- Coach Feedback Card -->
+        <div class="coach-card" id="coachCard">
+          <div class="coach-header">
+            <div class="coach-avatar">🎓</div>
+            <div class="coach-bubble">
+              <div class="coach-top-row">
+                <span class="coach-badge" id="coachBadge">Coach Ready</span>
+                <span class="coach-eval-pill" id="coachEvalPill">0.0</span>
+              </div>
+              <div class="coach-title" id="coachTitle">Make your first move!</div>
+              <p class="coach-body" id="coachBody">
+                Your custom engine analyzes every move — both yours and the bot's — and gives live Chess.com-style feedback.
+              </p>
+              <div class="coach-actions hidden" id="coachActions">
+                <button class="btn-chip" id="showBestBtn">↗ Show Best Move</button>
+                <span class="coach-best-line" id="coachBestLine"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Opening & Live Accuracy Strip -->
+        <div class="status-strip">
+          <div class="opening-box">
+            <span class="eco-tag" id="openingEco">—</span>
+            <span class="opening-name" id="openingName">Starting Position</span>
+          </div>
+          <div class="accuracy-mini">
+            <span title="White Accuracy">⬜ <strong id="whiteAccDisplay">—</strong></span>
+            <span title="Black Accuracy">⬛ <strong id="blackAccDisplay">—</strong></span>
+          </div>
+        </div>
+
+        <!-- Evaluation Graph -->
+        <div class="eval-graph-card" title="Click anywhere on the graph to jump to that move">
+          <svg id="evalGraphSvg" viewBox="0 0 320 68" preserveAspectRatio="none">
+            <line x1="0" y1="34" x2="320" y2="34" stroke="rgba(255,255,255,0.16)" stroke-dasharray="3,3" />
+            <path id="evalGraphArea" d="" fill="rgba(255,255,255,0.22)" />
+            <path id="evalGraphLine" d="" fill="none" stroke="#81b64c" stroke-width="2" />
+            <circle id="evalGraphMarker" cx="0" cy="34" r="3.5" fill="#fff" class="hidden" />
+          </svg>
+        </div>
+
+        <!-- Move History List -->
+        <div class="move-list-wrap" id="moveListWrap">
+          <div class="move-list-empty" id="moveListEmpty">
+            Moves &amp; engine classifications will appear here.
+          </div>
+          <div class="move-list" id="moveList"></div>
+        </div>
+
+        <!-- Playback Controls -->
+        <div class="playback-bar">
+          <button class="icon-btn" id="navStartBtn" title="First Move (Home)">⏮</button>
+          <button class="icon-btn" id="navPrevBtn" title="Previous Move (←)">◀</button>
+          <button class="icon-btn" id="navNextBtn" title="Next Move (→)">▶</button>
+          <button class="icon-btn" id="navEndBtn" title="Latest Move (End)">⏭</button>
+          <button class="icon-btn" id="flipBoardBtn" title="Flip Board (F)">⇅</button>
+        </div>
+
+        <!-- Game Action Buttons -->
+        <div class="game-actions-grid">
+          <button class="btn btn-primary" id="newGameQuickBtn">New Game</button>
+          <button class="btn btn-secondary" id="hintBtn">💡 Hint</button>
+          <button class="btn btn-secondary" id="takebackBtn">↩ Takeback</button>
+          <button class="btn btn-secondary" id="copyPgnBtn">📋 Copy PGN</button>
+          <button class="btn btn-danger" id="resignBtn">🏳 Resign</button>
+        </div>
+      </section>
+
+      <!-- TAB 2: BOTS & ELO SELECTION -->
+      <section class="tab-content" id="tab-bots">
+        <div class="section-block">
+          <h3 class="section-title">Match Setup</h3>
+          <div class="setup-row">
+            <label>Play As</label>
+            <div class="segmented" id="colorSelector">
+              <button class="seg-btn active" data-color="white">⬜ White</button>
+              <button class="seg-btn" data-color="random">🎲 Random</button>
+              <button class="seg-btn" data-color="black">⬛ Black</button>
+            </div>
+          </div>
+          <div class="setup-row">
+            <label>Time Control</label>
+            <select id="timeControlSelect" class="dark-select">
+              <option value="0|0" selected>Unlimited (No Clock)</option>
+              <option value="180|2">3 | 2 Blitz</option>
+              <option value="300|0">5 | 0 Blitz</option>
+              <option value="600|0">10 | 0 Rapid</option>
+              <option value="900|10">15 | 10 Rapid</option>
+            </select>
+          </div>
+          <div class="setup-row">
+            <div class="slider-header">
+              <label for="customEloSlider">Custom Bot ELO</label>
+              <span class="elo-pill" id="customEloValue">1200 ELO</span>
+            </div>
+            <input type="range" id="customEloSlider" min="400" max="2200" step="50" value="1200" />
+            <div class="slider-ticks">
+              <span>400 Beginner</span>
+              <span>1200 Interm.</span>
+              <span>2200 Max</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-block bots-scroll">
+          <h3 class="section-title">Select Opponent Bot</h3>
+          <div class="bot-grid" id="botGrid"></div>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="startBotMatchBtn">Play vs Nelson (1200)</button>
+      </section>
+
+      <!-- TAB 3: CUSTOMIZABLE SOUNDS -->
+      <section class="tab-content" id="tab-sounds">
+        <div class="section-block">
+          <h3 class="section-title">Sound Pack &amp; Master Controls</h3>
+          <div class="setup-row">
+            <label for="soundPackSelect">Built-in Sound Pack</label>
+            <select id="soundPackSelect" class="dark-select"></select>
+          </div>
+          <div class="setup-row">
+            <div class="slider-header">
+              <label for="masterVolumeSlider">Master Volume</label>
+              <span id="masterVolumeLabel">85%</span>
+            </div>
+            <input type="range" id="masterVolumeSlider" min="0" max="100" value="85" />
+          </div>
+          <div class="setup-row">
+            <div class="slider-header">
+              <label for="pitchSlider">Sound Pitch / Speed</label>
+              <span id="pitchLabel">1.00×</span>
+            </div>
+            <input type="range" id="pitchSlider" min="60" max="160" value="100" />
+          </div>
+        </div>
+
+        <div class="section-block sounds-scroll">
+          <div class="section-header-row">
+            <h3 class="section-title">Custom Audio per Action</h3>
+            <button class="btn-chip" id="resetAllSoundsBtn">Reset All</button>
+          </div>
+          <p class="helper-text">
+            Upload your own <code>.mp3</code>, <code>.wav</code>, or <code>.ogg</code> sound for moving, taking/capturing, check, castling, and more. Saved locally in your browser!
+          </p>
+          <div class="sound-events-list" id="soundEventsList"></div>
+        </div>
+      </section>
+
+      <!-- TAB 4: CUSTOM ENGINE LAB -->
+      <section class="tab-content" id="tab-engine">
+        <div class="section-block">
+          <h3 class="section-title">Live Custom Engine Inspector</h3>
+          <div class="engine-stats-grid">
+            <div class="stat-box">
+              <span>Search Depth</span>
+              <strong id="statDepth">—</strong>
+            </div>
+            <div class="stat-box">
+              <span>Nodes Searched</span>
+              <strong id="statNodes">—</strong>
+            </div>
+            <div class="stat-box">
+              <span>Eval Speed</span>
+              <strong id="statNps">—</strong>
+            </div>
+            <div class="stat-box">
+              <span>Last Move Eval</span>
+              <strong id="statEval">0.0</strong>
+            </div>
+          </div>
+          <div class="pv-box" id="enginePvBox">
+            <div class="pv-title">Top Engine Lines</div>
+            <div id="engineLinesList" class="pv-lines">Click "Analyze Position" or make a move to inspect candidate lines.</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="analyzeNowBtn">🔍 Analyze Current Position</button>
+        </div>
+
+        <div class="section-block">
+          <div class="section-header-row">
+            <h3 class="section-title">Tune Engine Evaluation Weights</h3>
+            <button class="btn-chip" id="resetWeightsBtn">Defaults</button>
+          </div>
+          <div class="weight-sliders">
+            <div class="setup-row">
+              <div class="slider-header">
+                <label for="wBishopPair">Bishop Pair Bonus</label>
+                <span id="wBishopPairVal">+35 cp</span>
+              </div>
+              <input type="range" id="wBishopPair" min="0" max="90" value="35" />
+            </div>
+            <div class="setup-row">
+              <div class="slider-header">
+                <label for="wPassedPawn">Passed Pawn Weight</label>
+                <span id="wPassedPawnVal">1.0×</span>
+              </div>
+              <input type="range" id="wPassedPawn" min="0" max="200" value="100" />
+            </div>
+            <div class="setup-row">
+              <div class="slider-header">
+                <label for="wKingSafety">King Safety Weight</label>
+                <span id="wKingSafetyVal">1.0×</span>
+              </div>
+              <input type="range" id="wKingSafety" min="0" max="200" value="100" />
+            </div>
+            <div class="setup-row">
+              <div class="slider-header">
+                <label for="wRookFile">Rook Open File Bonus</label>
+                <span id="wRookFileVal">+20 cp</span>
+              </div>
+              <input type="range" id="wRookFile" min="0" max="60" value="20" />
+            </div>
+            <div class="setup-row">
+              <div class="slider-header">
+                <label for="wAggression">Aggression Bias</label>
+                <span id="wAggressionVal">0</span>
+              </div>
+              <input type="range" id="wAggression" min="-30" max="30" value="0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section-block">
+          <h3 class="section-title">FEN Position</h3>
+          <div class="fen-row">
+            <input type="text" id="fenInput" class="dark-input" aria-label="FEN string" />
+            <button class="btn btn-secondary btn-sm" id="loadFenBtn">Load</button>
+            <button class="btn btn-secondary btn-sm" id="copyFenBtn">Copy</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
